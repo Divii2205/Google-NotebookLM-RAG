@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f7f8fa;
+  --foreground: #101827;
+}
+
+html {
+  background:
+    radial-gradient(circle at top left, rgba(64, 224, 208, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(64, 224, 208, 0.08), transparent 24%),
+    var(--background);
+}
+
+body {
+  min-height: 100vh;
+  color: var(--foreground);
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(64, 224, 208, 0.28);
+}
