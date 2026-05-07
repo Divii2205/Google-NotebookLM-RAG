@@ -35,11 +35,19 @@ Open http://localhost:3000.
 
 ## Environment variables
 
-- `GEMINI_API_KEY` for Gemini API access
-- `QDRANT_URL` for the vector database endpoint
-- `QDRANT_API_KEY` for hosted Qdrant deployments if needed
+Create a `.env.local` file (never commit it):
 
-For local development, `QDRANT_URL` should point to `http://localhost:6333`.
+```
+GEMINI_API_KEY=your_api_key_here
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+```
+
+- `GEMINI_API_KEY` – Get from [Google AI Studio](https://aistudio.google.com/apikey)
+- `QDRANT_URL` – For local dev, use `http://localhost:6333`; for hosted, use your instance URL
+- `QDRANT_API_KEY` – Required only for hosted Qdrant
+
+**Security:** `.env.local` is in `.gitignore` and never committed. All traffic to Google's API is HTTPS.
 
 ## RAG pipeline
 

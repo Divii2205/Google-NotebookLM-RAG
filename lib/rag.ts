@@ -1,11 +1,10 @@
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
-import { TextLoader } from "@langchain/community/document_loaders/fs/text";
 import { Document } from "@langchain/core/documents";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join, extname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -44,8 +43,17 @@ function contentToString(content: unknown) {
 }
 
 async function loadFileDocuments(filePath: string, originalName: string, mimeType: string) {
-  const loader = mimeType === "application/pdf" ? new PDFLoader(filePath) : new TextLoader(filePath);
-  const loadedDocuments = await loader.load();
+  const loadedDocuments =
+    mimeType === "application/pdf"
+      ? await new PDFLoader(filePath).load()
+      : [
+          new Document({
+            pageContent: await readFile(filePath, "utf-8"),
+            metadata: {
+              source: filePath
+            }
+          })
+        ];
 
   return loadedDocuments.map(
     (doc) =>

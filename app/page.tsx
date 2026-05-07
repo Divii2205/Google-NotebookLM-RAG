@@ -49,7 +49,7 @@ export default function HomePage() {
         | { collectionName: string; fileName: string; chunkCount: number }
         | { error: string };
 
-      if (!response.ok) {
+      if (!response.ok || "error" in payload) {
         throw new Error("error" in payload ? payload.error : "Failed to ingest file.");
       }
 
@@ -104,7 +104,7 @@ export default function HomePage() {
         | { answer: string; sources: SourceItem[] }
         | { error: string };
 
-      if (!response.ok) {
+      if (!response.ok || "error" in payload) {
         throw new Error("error" in payload ? payload.error : "Failed to generate an answer.");
       }
 
