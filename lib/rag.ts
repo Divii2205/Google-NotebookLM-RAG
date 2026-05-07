@@ -84,7 +84,7 @@ async function storeTemporaryUpload(file: File) {
 async function getEmbeddings() {
   return new GoogleGenerativeAIEmbeddings({
     apiKey: getGeminiApiKey(),
-    model: "text-embedding-004"
+    model: "gemini-embedding-001"
   });
 }
 
@@ -142,7 +142,7 @@ export async function answerQuestion(collectionName: string, question: string) {
 
   const model = new ChatGoogleGenerativeAI({
     apiKey: getGeminiApiKey(),
-    model: "gemini-1.5-flash",
+    model: "gemini-flash-latest",
     temperature: 0.2
   });
 
