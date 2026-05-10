@@ -1,6 +1,10 @@
 # Mini-NotebookLM
 
-Mini-NotebookLM is a NotebookLM-style RAG app built with Next.js App Router, Tailwind CSS, LangChain.js, Google Gemini, and Qdrant.
+Mini-NotebookLM is a document chat app that lets you upload files, ask questions in plain language, and get answers grounded in the uploaded content.
+
+## About
+
+This project is designed to feel like a lightweight personal research companion. You upload a document, the app understands its structure, and then you can keep asking follow-up questions without losing context.
 
 ## What it does
 
@@ -9,6 +13,18 @@ Mini-NotebookLM is a NotebookLM-style RAG app built with Next.js App Router, Tai
 - Create Gemini embeddings with `gemini-embedding-001`
 - Store and search vectors in Qdrant
 - Answer questions with `gemini-1.5-flash` using only retrieved context
+
+## What is RAG?
+
+RAG stands for Retrieval-Augmented Generation. Instead of asking the model to answer from memory alone, the app first retrieves the most relevant parts of your document and then uses those chunks as context for the final answer. That usually makes responses more grounded, more useful, and less likely to hallucinate.
+
+In this app, the flow is:
+
+1. Upload a file.
+2. Split it into smaller chunks.
+3. Convert the chunks into vectors.
+4. Search for the most relevant chunks when you ask a question.
+5. Generate an answer using only that retrieved context.
 
 ## Local setup
 
@@ -32,6 +48,7 @@ npm run dev
 ```
 
 Open http://localhost:3000.
+
 
 ## Environment variables
 
