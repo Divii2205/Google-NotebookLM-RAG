@@ -204,7 +204,7 @@ export default function HomePage() {
                 Retrieved chunks will appear here after you ask a question.
               </div>
             ) : (
-              <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+              <div className="max-h-80 space-y-3 overflow-y-auto pr-1 scrollbar-hidden">
                 {sources.map((source) => {
                   const location = describeLocation(source.metadata);
                   return (
@@ -233,7 +233,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-5 scrollbar-hidden">
             {messages.length === 0 ? (
               <div className="flex h-full min-h-[420px] items-center justify-center rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 px-6 text-center text-slate-500">
                 Upload a document, then ask a question about its content.

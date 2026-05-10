@@ -28,6 +28,15 @@ body {
   background: rgba(64, 224, 208, 0.28);
 }
 
+/* Utility: hide visible scrollbars but keep scrolling enabled */
+.scrollbar-hidden {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 .markdown-body p { margin: 0.5rem 0; }
 .markdown-body p:first-child { margin-top: 0; }
 .markdown-body p:last-child { margin-bottom: 0; }

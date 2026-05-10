@@ -70,7 +70,6 @@ export function UploadDropzone({ onFileSelected, busy, isUploading }: UploadDrop
             </div>
             <div>
               <p className="text-base font-semibold text-slate-900">Drop a PDF, TXT, or CSV file here</p>
-              <p className="mt-1 text-sm text-slate-500">Or click to browse and index a document.</p>
             </div>
           </>
         )}
