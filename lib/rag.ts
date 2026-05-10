@@ -29,6 +29,20 @@ function buildCollectionName(fileName: string) {
   return `mnlm-${stem}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 }
 
+function locationLabel(meta: Record<string, unknown>): string | null {
+  const loc = meta.loc as { pageNumber?: number; lines?: { from?: number; to?: number } } | undefined;
+  if (loc?.pageNumber) {
+    if (loc.lines?.from && loc.lines?.to) {
+      return `page ${loc.pageNumber}, lines ${loc.lines.from}-${loc.lines.to}`;
+    }
+    return `page ${loc.pageNumber}`;
+  }
+  if (typeof meta.row === "number") {
+    return `CSV row ${(meta.row as number) + 1}`;
+  }
+  return null;
+}
+
 function contentToString(content: unknown) {
   if (typeof content === "string") {
     return content;
@@ -196,13 +210,9 @@ export async function answerQuestion(collectionName: string, question: string) {
 
   const context = sources
     .map((source) => {
-      const meta = source.metadata as Record<string, unknown>;
-      const loc = meta.loc as { pageNumber?: number } | undefined;
-      const locationParts: string[] = [];
-      if (loc?.pageNumber) locationParts.push(`page ${loc.pageNumber}`);
-      if (typeof meta.row === "number") locationParts.push(`row ${(meta.row as number) + 1}`);
-      const locationLabel = locationParts.length ? ` [${locationParts.join(", ")}]` : "";
-      return `Source ${source.rank}${locationLabel} (score: ${source.score.toFixed(3)}):\n${source.snippet}`;
+      const label = locationLabel(source.metadata as Record<string, unknown>);
+      const labelPart = label ? ` [${label}]` : "";
+      return `Source ${source.rank}${labelPart} (score: ${source.score.toFixed(3)}):\n${source.snippet}`;
     })
     .join("\n\n");
 
@@ -218,7 +228,7 @@ export async function answerQuestion(collectionName: string, question: string) {
         "You are Mini-NotebookLM, a grounded document assistant.",
         "Answer only with facts that are supported by the retrieved context.",
         "If the context does not contain the answer, say that you cannot find it in the uploaded document.",
-        "Prefer concise answers. When citing a fact, append a reference in the form (Source N, page X) or (Source N, row X) using the labels shown in the context.",
+        "Prefer concise answers. When citing a fact, append a reference using the bracketed label shown next to each source — e.g. (page 3, lines 12-25) for PDFs or (CSV row 47) for spreadsheets. If a source has no label, you may omit the citation for that fact.",
         `\nRetrieved context:\n${context}`
       ].join("\n")
     ),

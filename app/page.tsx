@@ -24,11 +24,13 @@ function shortSnippet(text: string) {
 function describeLocation(metadata: Record<string, unknown>): string | null {
   const loc = metadata.loc as { pageNumber?: number; lines?: { from?: number; to?: number } } | undefined;
   if (loc?.pageNumber) {
-    const lines = loc.lines?.from && loc.lines?.to ? ` · lines ${loc.lines.from}-${loc.lines.to}` : "";
-    return `Page ${loc.pageNumber}${lines}`;
+    if (loc.lines?.from && loc.lines?.to) {
+      return `Page ${loc.pageNumber} · lines ${loc.lines.from}-${loc.lines.to}`;
+    }
+    return `Page ${loc.pageNumber}`;
   }
   if (typeof metadata.row === "number") {
-    return `Row ${metadata.row + 1}`;
+    return `CSV row ${metadata.row + 1}`;
   }
   return null;
 }
@@ -242,7 +244,7 @@ export default function HomePage() {
                   <div
                     className={`max-w-3xl rounded-[1.5rem] px-4 py-3 text-sm leading-7 shadow-sm ${
                       message.role === "user"
-                        ? "bg-turquoise text-slate-950"
+                        ? "border border-turquoise bg-turquoise/15"
                         : "border border-slate-200 bg-slate-50 text-slate-800"
                     }`}
                   >
