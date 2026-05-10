@@ -4,7 +4,7 @@ Mini-NotebookLM is a NotebookLM-style RAG app built with Next.js App Router, Tai
 
 ## What it does
 
-- Drag and drop PDF or TXT files into the app
+- Drag and drop PDF, TXT, or CSV files into the app
 - Chunk the document with a recursive character splitter
 - Create Gemini embeddings with `gemini-embedding-001`
 - Store and search vectors in Qdrant
@@ -53,7 +53,7 @@ QDRANT_API_KEY=
 
 1. File upload via the browser
 2. Temporary server-side file write
-3. Loader selection for PDF or TXT
+3. Loader selection for PDF, TXT, or CSV
 4. Recursive chunking with overlap
 5. Gemini embeddings
 6. Qdrant storage and similarity search

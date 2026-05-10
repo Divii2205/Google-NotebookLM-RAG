@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const file = formData.get("file");
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Upload a PDF or TXT file." }, { status: 400 });
+      return NextResponse.json({ error: "Upload a PDF, TXT, or CSV file." }, { status: 400 });
     }
 
     const result = await ingestDocument(file);

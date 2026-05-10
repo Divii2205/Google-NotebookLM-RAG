@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { UploadDropzone } from "@/components/upload-dropzone";
 
 type ChatMessage = {
@@ -17,6 +19,18 @@ type SourceItem = {
 
 function shortSnippet(text: string) {
   return text.length > 220 ? `${text.slice(0, 220).trim()}...` : text;
+}
+
+function describeLocation(metadata: Record<string, unknown>): string | null {
+  const loc = metadata.loc as { pageNumber?: number; lines?: { from?: number; to?: number } } | undefined;
+  if (loc?.pageNumber) {
+    const lines = loc.lines?.from && loc.lines?.to ? ` · lines ${loc.lines.from}-${loc.lines.to}` : "";
+    return `Page ${loc.pageNumber}${lines}`;
+  }
+  if (typeof metadata.row === "number") {
+    return `Row ${metadata.row + 1}`;
+  }
+  return null;
 }
 
 export default function HomePage() {
@@ -132,7 +146,7 @@ export default function HomePage() {
               Ask questions over your own files with grounded answers.
             </h1>
             <p className="text-sm leading-6 text-slate-600 md:text-base">
-              Upload a PDF or TXT file, index it into Qdrant, and use Gemini-backed retrieval to chat only with the document.
+              Upload a PDF, TXT, or CSV file, index it into Qdrant, and use Gemini-backed retrieval to chat only with the document.
             </p>
           </div>
 
@@ -153,15 +167,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
+        <aside className="space-y-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-turquoise-deep">Source panel</p>
             <h2 className="mt-2 text-lg font-semibold text-slate-950">Upload a source</h2>
             <p className="mt-1 text-sm text-slate-500">One active collection is kept at a time for a clean NotebookLM-style workflow.</p>
           </div>
 
-          <UploadDropzone onFileSelected={handleFileSelected} busy={isUploading || isChatting} />
+          <UploadDropzone
+            onFileSelected={handleFileSelected}
+            busy={isUploading || isChatting}
+            isUploading={isUploading}
+          />
 
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Active source</p>
@@ -184,22 +202,25 @@ export default function HomePage() {
                 Retrieved chunks will appear here after you ask a question.
               </div>
             ) : (
-              <div className="space-y-3">
-                {sources.map((source) => (
-                  <article key={`${source.rank}-${source.score}`} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span>Chunk {source.rank}</span>
-                      <span>Score {source.score.toFixed(3)}</span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-700">{shortSnippet(source.snippet)}</p>
-                  </article>
-                ))}
+              <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+                {sources.map((source) => {
+                  const location = describeLocation(source.metadata);
+                  return (
+                    <article key={`${source.rank}-${source.score}`} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span>Chunk {source.rank}{location ? ` · ${location}` : ""}</span>
+                        <span>Score {source.score.toFixed(3)}</span>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-700">{shortSnippet(source.snippet)}</p>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
         </aside>
 
-        <section className="flex min-h-[640px] flex-col rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <section className="flex h-[640px] flex-col rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="flex items-center justify-between border-b border-slate-200 pb-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-turquoise-deep">Chat</p>
@@ -210,7 +231,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex-1 space-y-4 overflow-y-auto py-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-5">
             {messages.length === 0 ? (
               <div className="flex h-full min-h-[420px] items-center justify-center rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 px-6 text-center text-slate-500">
                 Upload a document, then ask a question about its content.
@@ -221,11 +242,17 @@ export default function HomePage() {
                   <div
                     className={`max-w-3xl rounded-[1.5rem] px-4 py-3 text-sm leading-7 shadow-sm ${
                       message.role === "user"
-                        ? "bg-slate-900 text-white"
+                        ? "bg-turquoise text-slate-950"
                         : "border border-slate-200 bg-slate-50 text-slate-800"
                     }`}
                   >
-                    {message.content}
+                    {message.role === "assistant" ? (
+                      <div className="markdown-body">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <span className="whitespace-pre-wrap">{message.content}</span>
+                    )}
                   </div>
                 </div>
               ))

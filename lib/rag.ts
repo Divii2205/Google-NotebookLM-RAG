@@ -5,6 +5,7 @@ import { ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings } from "@langchain
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { parse as csvParse } from "csv-parse/sync";
 import { join, extname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -43,29 +44,41 @@ function contentToString(content: unknown) {
 }
 
 async function loadFileDocuments(filePath: string, originalName: string, mimeType: string) {
-  const loadedDocuments =
-    mimeType === "application/pdf"
-      ? await new PDFLoader(filePath).load()
-      : [
-          new Document({
-            pageContent: await readFile(filePath, "utf-8"),
-            metadata: {
-              source: filePath
-            }
-          })
-        ];
+  const lowerName = originalName.toLowerCase();
 
-  return loadedDocuments.map(
-    (doc) =>
-      new Document({
-        pageContent: doc.pageContent,
-        metadata: {
-          ...doc.metadata,
-          sourceName: originalName,
-          mimeType
-        }
-      })
-  );
+  if (mimeType === "application/pdf" || lowerName.endsWith(".pdf")) {
+    const pdfDocs = await new PDFLoader(filePath).load();
+    return pdfDocs.map(
+      (doc) =>
+        new Document({
+          pageContent: doc.pageContent,
+          metadata: { ...doc.metadata, sourceName: originalName, mimeType }
+        })
+    );
+  }
+
+  if (mimeType === "text/csv" || mimeType === "application/vnd.ms-excel" || lowerName.endsWith(".csv")) {
+    const text = await readFile(filePath, "utf-8");
+    const records = csvParse(text, { columns: true, skip_empty_lines: true });
+
+    return (records as Array<Record<string, unknown>>).map(
+      (row, idx) =>
+        new Document({
+          pageContent: Object.entries(row)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join("\n"),
+          metadata: { sourceName: originalName, row: idx, mimeType }
+        })
+    );
+  }
+
+  const text = await readFile(filePath, "utf-8");
+  return [
+    new Document({
+      pageContent: text,
+      metadata: { source: filePath, sourceName: originalName, mimeType }
+    })
+  ];
 }
 
 async function storeTemporaryUpload(file: File) {
@@ -97,8 +110,14 @@ function getVectorStoreOptions(collectionName: string) {
 }
 
 export async function ingestDocument(file: File) {
-  if (!["application/pdf", "text/plain"].includes(file.type)) {
-    throw new Error("Only PDF and plain text files are supported.");
+  const lowerName = file.name.toLowerCase();
+  const allowedMimeTypes = new Set(["application/pdf", "text/plain", "text/csv", "application/vnd.ms-excel"]);
+  const allowedExtensions = [".pdf", ".txt", ".csv"];
+  const isAllowed =
+    allowedMimeTypes.has(file.type) || allowedExtensions.some((ext) => lowerName.endsWith(ext));
+
+  if (!isAllowed) {
+    throw new Error("Only PDF, TXT, and CSV files are supported.");
   }
 
   const tempPath = await storeTemporaryUpload(file);
@@ -106,15 +125,57 @@ export async function ingestDocument(file: File) {
 
   try {
     const sourceDocuments = await loadFileDocuments(tempPath, file.name, file.type);
-    const chunks = await splitter.splitDocuments(sourceDocuments);
-    const embeddings = await getEmbeddings();
+    const rawChunks = await splitter.splitDocuments(sourceDocuments);
+    const chunks = rawChunks.filter((chunk) => chunk.pageContent.trim().length > 0);
 
-    await QdrantVectorStore.fromDocuments(chunks, embeddings, getVectorStoreOptions(collectionName));
+    if (chunks.length === 0) {
+      throw new Error("No readable text was found in the uploaded file.");
+    }
+
+    const embeddings = await getEmbeddings();
+    const validDocs: Document[] = [];
+    const validVectors: number[][] = [];
+    const batchSize = 20;
+
+    for (let i = 0; i < chunks.length; i += batchSize) {
+      const batch = chunks.slice(i, i + batchSize);
+      let vectors: number[][] = [];
+      try {
+        vectors = await embeddings.embedDocuments(batch.map((c) => c.pageContent));
+      } catch {
+        for (const chunk of batch) {
+          try {
+            const [vec] = await embeddings.embedDocuments([chunk.pageContent]);
+            if (Array.isArray(vec) && vec.length > 0) {
+              validDocs.push(chunk);
+              validVectors.push(vec);
+            }
+          } catch {
+            // skip individual failures (e.g. safety-filtered content)
+          }
+        }
+        continue;
+      }
+
+      vectors.forEach((vec, idx) => {
+        if (Array.isArray(vec) && vec.length > 0) {
+          validDocs.push(batch[idx]);
+          validVectors.push(vec);
+        }
+      });
+    }
+
+    if (validVectors.length === 0) {
+      throw new Error("No chunks could be embedded — the content may have been blocked by safety filters.");
+    }
+
+    const store = new QdrantVectorStore(embeddings, getVectorStoreOptions(collectionName));
+    await store.addVectors(validVectors, validDocs);
 
     return {
       collectionName,
       fileName: file.name,
-      chunkCount: chunks.length
+      chunkCount: validVectors.length
     };
   } finally {
     await unlink(tempPath).catch(() => undefined);
@@ -134,10 +195,15 @@ export async function answerQuestion(collectionName: string, question: string) {
   }));
 
   const context = sources
-    .map(
-      (source) =>
-        `Source ${source.rank} (score: ${source.score.toFixed(3)}):\n${source.snippet}\nMetadata: ${JSON.stringify(source.metadata)}`
-    )
+    .map((source) => {
+      const meta = source.metadata as Record<string, unknown>;
+      const loc = meta.loc as { pageNumber?: number } | undefined;
+      const locationParts: string[] = [];
+      if (loc?.pageNumber) locationParts.push(`page ${loc.pageNumber}`);
+      if (typeof meta.row === "number") locationParts.push(`row ${(meta.row as number) + 1}`);
+      const locationLabel = locationParts.length ? ` [${locationParts.join(", ")}]` : "";
+      return `Source ${source.rank}${locationLabel} (score: ${source.score.toFixed(3)}):\n${source.snippet}`;
+    })
     .join("\n\n");
 
   const model = new ChatGoogleGenerativeAI({
@@ -152,7 +218,7 @@ export async function answerQuestion(collectionName: string, question: string) {
         "You are Mini-NotebookLM, a grounded document assistant.",
         "Answer only with facts that are supported by the retrieved context.",
         "If the context does not contain the answer, say that you cannot find it in the uploaded document.",
-        "Prefer concise answers, but include direct references to the source chunks when helpful.",
+        "Prefer concise answers. When citing a fact, append a reference in the form (Source N, page X) or (Source N, row X) using the labels shown in the context.",
         `\nRetrieved context:\n${context}`
       ].join("\n")
     ),
