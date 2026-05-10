@@ -157,9 +157,9 @@ export default function HomePage() {
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Status</p>
               <p className="mt-1 font-medium text-slate-900">{status}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Document</p>
-              <p className="mt-1 font-medium text-slate-900">{documentName ?? "None yet"}</p>
+              <p className="mt-1 truncate font-medium text-slate-900" title={documentName ?? "None yet"}>{documentName ?? "None yet"}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Chunks</p>
@@ -170,7 +170,7 @@ export default function HomePage() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
-        <aside className="space-y-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+        <aside className="flex h-[800px] flex-col gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-turquoise-deep">Source panel</p>
             <h2 className="mt-2 text-lg font-semibold text-slate-950">Upload a source</h2>
@@ -183,15 +183,15 @@ export default function HomePage() {
             isUploading={isUploading}
           />
 
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="min-w-0 rounded-3xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Active source</p>
             <div className="mt-3 space-y-1 text-sm">
-              <p className="font-medium text-slate-900">{documentName ?? "No file uploaded"}</p>
-              <p className="text-slate-500">Collection: {collectionName ?? "n/a"}</p>
+              <p className="truncate font-medium text-slate-900" title={documentName ?? "No file uploaded"}>{documentName ?? "No file uploaded"}</p>
+              <p className="truncate text-slate-500" title={collectionName ?? "n/a"}>Collection: {collectionName ?? "n/a"}</p>
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Sources</p>
               <span className="rounded-full border border-turquoise px-2 py-1 text-xs font-semibold text-turquoise-deep">
@@ -204,7 +204,7 @@ export default function HomePage() {
                 Retrieved chunks will appear here after you ask a question.
               </div>
             ) : (
-              <div className="max-h-80 space-y-3 overflow-y-auto pr-1 scrollbar-hidden">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-hidden">
                 {sources.map((source) => {
                   const location = describeLocation(source.metadata);
                   return (
@@ -222,7 +222,7 @@ export default function HomePage() {
           </div>
         </aside>
 
-        <section className="flex h-[640px] flex-col rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <section className="flex h-[800px] flex-col rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="flex items-center justify-between border-b border-slate-200 pb-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-turquoise-deep">Chat</p>
