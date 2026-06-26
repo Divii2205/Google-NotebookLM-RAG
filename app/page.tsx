@@ -10,11 +10,21 @@ type ChatMessage = {
   content: string;
 };
 
+type Grade = "correct" | "ambiguous" | "incorrect";
+
 type SourceItem = {
   rank: number;
   score: number;
   snippet: string;
   metadata: Record<string, unknown>;
+  grade?: Grade;
+};
+
+type RetrievalTrace = {
+  status: "grounded" | "corrected" | "not_found";
+  rewrites: number;
+  rewrittenQueries: string[];
+  verdicts: { rank: number; score: number; grade: Grade }[];
 };
 
 function shortSnippet(text: string) {
@@ -35,12 +45,25 @@ function describeLocation(metadata: Record<string, unknown>): string | null {
   return null;
 }
 
+const STATUS_BADGE: Record<RetrievalTrace["status"], { label: string; className: string }> = {
+  grounded: { label: "Grounded ✓", className: "border-turquoise bg-turquoise/10 text-turquoise-deep" },
+  corrected: { label: "Corrected ↻", className: "border-amber-400 bg-amber-50 text-amber-700" },
+  not_found: { label: "Not found in document", className: "border-slate-300 bg-slate-100 text-slate-500" }
+};
+
+const GRADE_BADGE: Record<Grade, { label: string; className: string }> = {
+  correct: { label: "relevant", className: "bg-turquoise/15 text-turquoise-deep" },
+  ambiguous: { label: "partial", className: "bg-amber-100 text-amber-700" },
+  incorrect: { label: "weak", className: "bg-slate-100 text-slate-500" }
+};
+
 export default function HomePage() {
   const [collectionName, setCollectionName] = useState<string | null>(null);
   const [documentName, setDocumentName] = useState<string | null>(null);
   const [chunkCount, setChunkCount] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sources, setSources] = useState<SourceItem[]>([]);
+  const [retrieval, setRetrieval] = useState<RetrievalTrace | null>(null);
   const [question, setQuestion] = useState("");
   const [status, setStatus] = useState<string>("Upload a file to begin.");
   const [isUploading, setIsUploading] = useState(false);
@@ -79,6 +102,7 @@ export default function HomePage() {
         }
       ]);
       setSources([]);
+      setRetrieval(null);
       setStatus("Document ready. Ask a question grounded in the uploaded file.");
     } catch (ingestError) {
       const message = ingestError instanceof Error ? ingestError.message : "Unable to index the document.";
@@ -117,7 +141,7 @@ export default function HomePage() {
       });
 
       const payload = (await response.json()) as
-        | { answer: string; sources: SourceItem[] }
+        | { answer: string; sources: SourceItem[]; retrieval?: RetrievalTrace }
         | { error: string };
 
       if (!response.ok || "error" in payload) {
@@ -126,7 +150,15 @@ export default function HomePage() {
 
       setMessages((current) => [...current, { role: "assistant", content: payload.answer }]);
       setSources(payload.sources);
-      setStatus("Answer grounded in the uploaded document.");
+      setRetrieval(payload.retrieval ?? null);
+
+      if (payload.retrieval?.status === "corrected") {
+        setStatus("Retrieval was corrected — rewrote the query to find relevant context.");
+      } else if (payload.retrieval?.status === "not_found") {
+        setStatus("No relevant context found in the uploaded document.");
+      } else {
+        setStatus("Answer grounded in the uploaded document.");
+      }
     } catch (chatError) {
       const message = chatError instanceof Error ? chatError.message : "Unable to answer the question.";
       setError(message);
@@ -199,6 +231,35 @@ export default function HomePage() {
               </span>
             </div>
 
+            {retrieval ? (
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Corrective RAG
+                  </span>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE[retrieval.status].className}`}
+                  >
+                    {STATUS_BADGE[retrieval.status].label}
+                  </span>
+                </div>
+                {retrieval.rewrittenQueries.length > 0 ? (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[0.65rem] uppercase tracking-[0.18em] text-slate-400">
+                      Retried with {retrieval.rewrites} rewrite{retrieval.rewrites === 1 ? "" : "s"}
+                    </p>
+                    <ul className="space-y-1">
+                      {retrieval.rewrittenQueries.map((q, i) => (
+                        <li key={`${i}-${q}`} className="truncate text-xs text-slate-600" title={q}>
+                          ↳ {q}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {sources.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                 Retrieved chunks will appear here after you ask a question.
@@ -210,7 +271,14 @@ export default function HomePage() {
                   return (
                     <article key={`${source.rank}-${source.score}`} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span>Chunk {source.rank}{location ? ` · ${location}` : ""}</span>
+                        <span className="flex items-center gap-2">
+                          <span>Chunk {source.rank}{location ? ` · ${location}` : ""}</span>
+                          {source.grade ? (
+                            <span className={`rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${GRADE_BADGE[source.grade].className}`}>
+                              {GRADE_BADGE[source.grade].label}
+                            </span>
+                          ) : null}
+                        </span>
                         <span>Score {source.score.toFixed(3)}</span>
                       </div>
                       <p className="mt-3 text-sm leading-6 text-slate-700">{shortSnippet(source.snippet)}</p>
